@@ -5,6 +5,7 @@ Programa equivalente al Gtierras en python.
 
 Folder Data: Ejemplo de datos de casos
 Folder Codigo: Codigod principales del programa
+Archivo Coupling_v0.odp , primera presentacion estructura del programa.
 
 
 
