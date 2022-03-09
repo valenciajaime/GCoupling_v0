@@ -63,6 +63,7 @@ from scipy.constants import mu_0,epsilon_0 #ver. 08-18-2020
 from scipy.special import jve #Para calculo de impedancia interna del conductor 2021-sep-25
 from mpl_toolkits.mplot3d import axes3d  #para graficos 3D 2021-sep-21 martes
 from scipy import fftpack  #2021-oct-8 para respuesta en el tiempo
+import scipy.interpolate as INTP # para la clase signal01() #2022- marzo-09
 
 
 ##funciones
