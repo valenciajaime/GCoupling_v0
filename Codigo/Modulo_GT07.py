@@ -3,9 +3,9 @@
 Authors: 
 Emails:  
        
-Archivo: Modulo_GT06.py    
+Archivo: Modulo_GT07.py    
 
-Fecha: 2021-oct-28  viernes
+Fecha: 2022-marz-09 miercoles      old:2021-oct-28  viernes
 
 Objetivo: Revision calculo Aij(reducir carga computacional al variar frecuencia)
           1. Revisar metodo en clase Segmento01: +Calc_Aij(), +Calc_Aii()
@@ -41,6 +41,7 @@ class Segmento01():
 class Conductor01():
 class SPT_01():
 class Solve_SPT01(): ver. 2021-oct-8
+class My_signal01(): ver. 2022-marz-09 para procesar datos de señales muestradas.
 
 
 Resultados:
@@ -1248,7 +1249,71 @@ class Solve_SPT01(object):
         plt.show()
         
 
-    
+class My_signal01():
+    """Procesamiento de señales
+       Para ajuste de modelos de electrodos de tierra
+       y GCouplig.
+       lECTURA DE ARCHIVOS csv y adf(ATPDRAW)
+
+       ver. 2022-marz-07 lunes
+    """
+    def __init__(self):
+        """inicio
+           ver. 2022-marz-07 lunes
+        """
+        
+        print("Clase My_signal01")
+        return
+
+    def Get_fromFile2c(self, myfile1 = ""):
+        """Lectura de datos de un archivo
+           con 2 columnas separadas por ";" y sin encabezado.
+           O archivos adf(AT) con una señal.
+
+           ver. 2022-marz-08 martes
+        """
+        if myfile1 =="":
+            mydir1, myfile1 = My_DirFil01()
+        
+        self.file = myfile1
+        try:
+            Datos1 = np.loadtxt(myfile1,delimiter=";")#dos columnas tiempo, valores
+            self.Time = Datos1[:,0]
+            self.Valores = Datos1[:,1]
+        except:
+            of1 = open(myfile1)# caso archivos ADF del ATP
+            of1.readline()
+            of1.readline()
+            T=[]; V=[]
+            for q in of1:
+                q1 = q.split("\t")
+                T.append(float(q1[0]))
+                V.append(float(q1[1]))
+            self.Time = np.array(T)
+            self.Valores = np.array(V)
+                
+        self.f_interp1 = INTP.interp1d(self.Time, self.Valores, kind="cubic", fill_value="extrapolate")
+        return "Atributos: file, Tiem, Valores"
+
+    def Show_Datos(self, ps="b*-"):
+        """Grafico de datos leidos
+
+          ver. 2022
+        """
+        plt.plot(self.Time, self.Valores,ps)
+        plt.grid("on")
+        plt.show()
+
+    def __call__(self,t1):
+        """Calculo de la funcion por interpolacion cubica
+           directa.
+           Se usa  clase scipy.interpolate.interp1d
+
+           ver. 2022-marz-07
+        """
+        y = self.f_interp1(t1)
+        return y
+        
 
 ##Codigo ppal
 
