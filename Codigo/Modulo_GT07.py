@@ -5,7 +5,7 @@ Emails:
        
 Archivo: Modulo_GT07.py    
 
-Fecha: 2022-marz-09 miercoles      old:2021-oct-28  viernes
+Fecha: 2022-jun-24 viernes     old:2022-marz-09 miercoles      old_old:2021-oct-28  viernes
 
 Objetivo: Revision calculo Aij(reducir carga computacional al variar frecuencia)
           1. Revisar metodo en clase Segmento01: +Calc_Aij(), +Calc_Aii()
@@ -41,7 +41,12 @@ class Segmento01():
 class Conductor01():
 class SPT_01():
 class Solve_SPT01(): ver. 2021-oct-8
+
 class My_signal01(): ver. 2022-marz-09 para procesar datos de señales muestradas.
+class Signal_Gen01(): ver.  2022-jun-24 generar señales de impulso normalizadas.Funcion con doble exponenial
+
+class Medida_GT01(object): ver.  2022-jun-24 obtener modelo de 2 capas a partir de medidas de campo con metodo de Wenner.
+class Medida_GT02(object): ver.  2022-jun-24 obtener modelo de 2 capas a partir de medidas de campo con metodo de Schulemberger.
 
 
 Resultados:
@@ -1315,6 +1320,520 @@ class My_signal01():
         y = self.f_interp1(t1)
         return y
         
+class Signal_Gen01(object):
+  """Clase para generar señales tipo impulso de doble exponencial
+
+     ver. 2022-abril-20 miercoles
+  """
+  def __init__(self):
+    """ Inicializacion Signal_Gen01
+        ver. 2022-abril-20
+    """
+    print("Creacion objeto Signal_Gen01")
+    return
+
+  def ImpulsoE(self,t,Ik,alfa,beta):
+    """Funcion Impulso
+     forma: f(t) = Ik (exp(-Alfa*t) - exp(-Beta*t))
+
+     ver. 2022-abril-20 miercoles
+     """
+    y = Ik*(np.exp(-alfa*t) - np.exp(-beta*t))
+
+    return y
+
+  def Datos_ImpE(self,tf,dt,Ik,alfa,beta):
+    """tf: tiempo final dt: delta t(periodo muestreo)
+     Ik,alba,beta: constantes modelo calculadas
+     con Imp_triang()
+
+     Retorna onda muestreada
+     T: array en segundo
+     Y: array onda
+     T,Y
+     """
+    T = np.arange(0,tf,dt)
+    Y = []
+
+    for q in T:
+      yi = ImpulsoE(q,Ik,alfa*1e6,beta*1e6)
+      Y.append(yi)
+    Y = np.array(Y)
+    return T,Y
+
+  def Error_Imp(self,X,t_d,y_d):
+    """X:[Ik, Alfa, Beta]
+       t:tiempo   y:valor
+       Calcula el error cuadratico medio entre
+       la señal (t,y) y el modelo y = Ik * (exp(-Alfa*t)-exp(-Beta*t))
+       t: dado en microsegundo
+       y: valor
+       ver. 09-09-2020 miercoles
+    """
+    Ik = X[0]; Alfa = X[1]; Beta = X[2]
+    Imp = lambda t: Ik*(np.exp(-Alfa*t) - np.exp(-Beta*t))
+    y_m = Imp(t_d)
+
+    sme = (np.linalg.norm(y_m - y_d)**2)/len(t_d)
+    return sme
+
+  def Imp_Triang(self,t1,t2):
+    """t1: tiempo frente en microsegundos
+       t2: tiempo cola(50%) en microsegundos
+
+       Calcula coeficentes aprox del modelo
+       Ik * (exp(-a*t) - exp(-b*t))
+       con t en microsegundos a partir de una
+       onda triangular.
+       ver. 09-09-2020 miercoles
+    """
+    tx = np.linspace(0,t2, int(2*t1*t2) )
+    ti = [0,t1,t2]
+    yi = [0,1.0,0.5]
+
+    yx = np.interp(tx,ti,yi)
+    ei=Error_Imp([1.0167,0.0142, 5.073],tx,yx)
+    print("Error inicial: ",ei)
+    res = OP.minimize(Error_Imp,[1.0167,0.0142, 5.073],(tx,yx))
+    res = OP.minimize(Error_Imp,res.x,(tx,yx))
+
+    Ik = res.x[0]; Alfa = res.x[1]; Beta = res.x[2]
+    #Alfa y Beta esta para manejar funcion en microsegundos
+    Imp = lambda t: Ik*(np.exp(-Alfa*t) - np.exp(-Beta*t))
+    y_m = Imp(tx)
+
+    ef=Error_Imp(res.x,tx,yx)
+    print("Error final: ",ef)
+    plt.plot(tx,yx,tx,y_m)
+    plt.show()
+    return res.x
+
+  def Std2Dblexp(self,t_front=0.5, t_cola=20):
+    """A partir del tiempo de frente(t_front)
+       y tiempo de cola(t_cola) en microsegundos
+       se calculan los valores para la funcion
+       doble exponencial a partir de un ajuste
+       de una triangular.
+
+       ver. 2022-abril-20  miercoles
+       """
+    print("Datos para t(en MICROseg)")
+    Res = self.Imp_Triang(t_front, t_cola)
+    I_k, Alfa, Beta = Res
+    self.I_k = I_k
+    self.Alfa = Alfa #*1e6 para t es en segundos
+    self.Beta = Beta #*1e6 para t es en segundos
+    return Res
+
+  def Show_SamplEDbexp(self, t_final=3000e-6, delta_t=1.15e-08, t_show=1e-4):
+    """ calculo y graficos de la doble exponencial
+        Se debe tener I_k, Alfa y Beta
+        y = Ik * (exp(-Alfa*t)-exp(-Beta*t))
+
+        ver. 2022-abril-20 miercoles
+        """
+    T1,Y1 = self.Datos_ImpE(t_final,delta_t,self.I_k, self.Alfa, self.Beta)
+    self.T_onda = T1
+    self.V_onda = Y1
+
+    plt.plot(T1,Y1)
+    plt.title(" Onda doble exponencial")
+    plt.xlabel("t(seg)")
+    plt.grid("on")
+    plt.xlim(0,t_show)
+    plt.show()
+    return "Atributos: T_onda, V_onda"
+
+  def Make_file(self, Nfile="Onda00.txt"):
+    """Crear archivo de datos T, Valor
+       separados por ";" y sin encabezado.
+
+       Debe tener los atributos T_onda, V_onda
+
+       ver. 2022-abril-20 miercoles
+       """
+    of1 = open(Nfile,"w")
+
+    for k in range(len(self.T_onda)):
+      s1 = str(self.T_onda[k])+";"+str(self.V_onda[k])+"\n"
+      of1.write(s1)
+    of1.close()
+    
+    return "Creado archivo datos "+Nfile
+
+  def Set_ParamDblexp(self,Ik, alfa, beta):
+    """alfa, beta para unidades de microsegundos.
+       Si esta en unidades de segundos se debe dividir por 10**6(o 1e6)
+
+       ver. 2022-abril-20 miercoles
+       """
+    self.I_k = Ik
+    self.Alfa = alfa
+    self.Beta = beta
+    return
+
+###Procesamiendo de datos de medidas para calculo de modelo de suelo de  capas
+class Medida_GT01(object):
+  """Clase para manejo de medidas de resistividad
+     -Obtener modelo de suelo de 1 y 2 capas
+     -Metodo Wenner
+     .Metodo de Schulemberg(En otra clase)
+
+     ver. lunes 2022-abril-18
+  """
+  def __init__(self):
+    """ Inicio con datos de prueba
+        "a_dist": [ 2.5,  5. ,  7.5, 10. , 12.5, 15. ],
+        "ro_med": [320., 245., 182., 162., 168., 152.],
+
+       ver. lunes 2022-abril-18
+    """
+    print("inicio clase Medida_GT01")
+    #Datos metodo Wenner
+    self.Dat_wenner={"a_dist": [ 2.5,  5. ,  7.5, 10. , 12.5, 15. ],
+                     "ro_med": [320., 245., 182., 162., 168., 152.],
+                     "ro0_ro1": [], "ho":[],
+                     "ro_ajust":[]}
+    return
+
+  def Resistivity_Wenner0(self,a=2, ro=[100,200], h=1.5, Np=10):
+    """
+    a: distancia entre los electrodos usadas en el método de Wenner
+    ro: vector que corresponde a las valores de resistividad del suelo
+       [ro_capa1, ro_capa2]
+    h : escalar que corresponde a la profundidad del modelo de dos capas
+    Np: numero de elementos de la serie
+    roc: la resistividad aparente calculada
+    ejemplo:
+    >>> Resistivity_0()
+    122.597835432
+
+    rev: 2018-06-13
+    """
+    a_ro = np.array(ro)
+    
+    k = (a_ro[1:]-a_ro[:-1])/(a_ro[1:]+a_ro[:-1])#% calculo de los coeficientes de reflexión
+
+    Suma1= 0
+    for q in range(1,Np):
+        kn = k[0]**q
+        cn = (2*q*h/a)**2
+        c1 = kn/np.sqrt(1+cn)
+        c2 = kn/np.sqrt(4+cn)
+        Suma1 +=(c1-c2)
+    roc = ro[0]*(1 + 4*Suma1)
+        
+    return roc
+
+  def Error_Wenner0(self,Xd,M_a,M_ro):
+    """Xd:[ro1,ro2,h]  M_a:lista distancias  M_ro:lista resistiv
+       Calcula el error cuadratico medio con el modelo de 2 capas
+       usando la funcion Resistivity_0().
+       len(M_a) == len(M_ro) debe cumplirse
+
+       rev: 2018-06-13
+    """
+    NN = len(M_a)
+    S_errorc=0
+    for q in range(NN):
+        ro_m = self.Resistivity_Wenner0(M_a[q],Xd[:2],Xd[2])
+        ec = (ro_m-M_ro[q])**2
+        S_errorc += ec
+    Er = S_errorc/NN
+    return Er
+
+  def Get_ajuste_Wenner0(self,ferror,X0,Dato_h,Dato_ro, Niter=0):
+    """ferror: funcion de error,  X0: inicio[ro h]
+       Dato_ro: medidas de resistividad aparante
+       Dato_H: distancia de medidas Wenner
+       ver: 2018-07-17 martes
+       ejemplo:
+       RES_c = Get_ajuste01(ErrorN_ron, xo, DcapasN_01["a"], DcapasN_01[Cl], Niter=1)
+       
+       
+    """
+    RES_0 = OP.minimize(ferror, X0,(Dato_h,Dato_ro))
+    if Niter>0:
+        xo1 = np.abs(RES_0.x)
+        RES_0 = OP.minimize(ferror, xo1,(Dato_h,Dato_ro))
+    return RES_0
+
+  def Get_roini(self,M_a,M_ro):
+    """M_a:lista distancias  M_ro:lista resistiv
+       calcula ro[primero, ultimo]
+       Para inicializar ajuste
+       rev: 2018-06-13
+    """
+
+    Xi = [M_ro[0],M_ro[-1],1]
+    return Xi
+
+  def Get_Show_Wenner0(self, itt = 0):
+    """Calculo de parametros modelo de suelo de  2 capas
+       a partir de datos de Wenner usando:
+       Get_roini()
+       Error_Wenner0()
+       Get_ajuste_Wenner0()
+       Dat_wenner{}
+
+       ver. lunes 2022-abril-18
+    """
+    Xo = self.Get_roini(self.Dat_wenner["a_dist"], self.Dat_wenner["ro_med"])
+    print("Xo: ",Xo)
+    #Esta funcion calcula el error
+    er1 = self.Error_Wenner0(Xo,self.Dat_wenner["a_dist"], self.Dat_wenner["ro_med"])
+    print("Error inicial: ",er1)
+
+    ##ajuste de parametros
+    ##funcion de optimizacion en el modulo
+    ## utiliza scipy.optimize.minimize()
+    Ajuste1 = self.Get_ajuste_Wenner0(self.Error_Wenner0,Xo,
+                                      self.Dat_wenner["a_dist"],
+                                      self.Dat_wenner["ro_med"], Niter=itt)
+    print("Modelo de 2 capas (Wenner)")
+    print("ro1, ro2 : ",Ajuste1.x[:2])
+    print("ho : ",Ajuste1.x[2])
+    print("Error logrado: ",Ajuste1.fun)
+
+    ro1_ajuste1 = self.Resistivity_Wenner0(a=self.Dat_wenner["a_dist"], ro=Ajuste1.x[:2], h=Ajuste1.x[2], Np=10)
+
+    
+    self.Dat_wenner["ro0_ro1"]=Ajuste1.x[:2]
+    self.Dat_wenner["ho"]=Ajuste1.x[2]
+    self.Dat_wenner["ro_ajust"]= ro1_ajuste1
+    return
+
+  def Plot_Wenner0(self):
+    """Grafico de datos y modelo de Wenner:
+       .Dat_wenner
+
+       ver. lunes 2022-abril-18
+    """
+    try:
+      plt.plot(self.Dat_wenner["a_dist"],self.Dat_wenner["ro_med"],"ro")
+      plt.plot(self.Dat_wenner["a_dist"],self.Dat_wenner["ro_ajust"],"b*-")
+      plt.xlabel("distancia Wener (mts)")
+      plt.ylabel("resistividad aparente ohms-mt")
+      plt.title("Datos Wenner .Dat_wenner")
+      plt.legend(["Medidas","Modelo "])
+      plt.grid('on')
+      plt.show()
+    except:
+      print("Falta calcular modelo")
+    return
+
+  def Set_DatW0(self,d_new, ro_new):
+    """d_new, ro_new : listas de igual dimension
+       Asignar nuevos valores de medida
+
+       ver. 2022-aril-18 lunes
+    """
+    self.Dat_wenner["a_dist"]= d_new
+    self.Dat_wenner["ro_med"]= ro_new
+    self.Get_Show_Wenner0()
+    return
+
+  def Dato2Slumbg(self):
+    """Generar datos para la clase de Slumberger.
+       Wenner tiene igual distancia entre electrodos (a_w)
+       Slumberger: a(distancia E corriente) = (a_w) + (a_w/2)
+                   b(distancia E ptencial)  = a_w/2
+    """
+    hi = self.Dat_wenner["a_dist"]
+    Da=[];Db=[]
+    for dd in hi:
+      Da.append(dd + (dd/2))
+      Db.append(dd/2)
+    D_slumb = [Da,Db]
+    print("[[centro-E corriente],[centro-E potencial]]")
+
+    return D_slumb
+
+
+class Medida_GT02(object):
+  """Clase para manejo de medidas de resistividad
+     -Obtener modelo de suelo de 1 y 2 capas
+     
+     .Metodo de Schulemberg(En otra clase)
+
+     ver. lunes 2022-abril-18
+  """
+  def __init__(self):
+    """ Inicio con datos de prueba??
+        
+       ver. lunes 2022-abril-18
+    """
+    print("inicio clase Medida_GT02")
+    #Datos metodo Slumberger
+    #ab_dist: distancias a y b para el metodo de Schulemberg
+    # a: distancia del centro al eletrodo de corriente
+    # b: distancia del centro al electrodo de potencial
+    ##'ro0_ro1': array([364.68447103, 143.63899288]), 'ho': 2.82788
+    ##Datos de prueba tomados de Wenner
+    self.Dat_slumbg={"ab_dist": np.array([[3.75,7.5,11.25,15.0,18.75,22.5],[1.25,2.5,3.75,5.0,6.25,7.5]]),
+                     "ro_med": [320.0, 245.0, 182.0, 162.0, 168.0, 152.0],
+                     "ro0_ro1": [], "ho":[],
+                     "ro_ajust":[]}
+    return
+
+  def Resistivity_Slumbg0(self,a=2, b=0.5, ro=[100,200], h=1.5, Np=10):
+    """
+    a: distancia entre los electrodos de corriente del método de schlumberger
+    b: distancia entre los electrodos de voltaje del método de schlumberger
+    ro: vector que corresponde a las valores de resistividad del suelo
+       [ro_capa1, ro_capa2]
+    h : escalar que corresponde a la profundidad del modelo de dos capas
+    Np: numero de elementos de la serie (iteraciones)
+    roc: la resistividad aparente calculada
+
+    ver. Jorge A. Bohorquez
+         Lunes 2022-abril-18
+    """
+    a_ro = np.array(ro)
+    
+    k = (a_ro[1:]-a_ro[:-1])/(a_ro[1:]+a_ro[:-1])#% calculo de los coeficientes de reflexión
+
+    u=(a**2-b**2)/b
+
+    Suma1= 0
+    for q in range(1,Np):
+        kn = k[0]**q
+        cn = (2*q*h)**2
+        u1 = (a-b)**2
+        u2 = (a+b)**2
+        c1 = kn/np.sqrt(cn+u1)
+        c2 = kn/np.sqrt(cn+u2)
+        Suma1 += u*(c1-c2)
+    roc = ro[0]*(1 + Suma1)
+        
+    return roc
+
+  def Error_Slumbg0(self,Xd,M_a,M_ro):
+    """Xd:[ro1,ro2,h]  M_ab:array distancias(a: fila 0, b:fila 1)
+        M_ro:lista resistividad
+       Calcula el error cuadratico medio con el modelo de 2 capas
+       usando la funcion Resistivity_Slumbg0().
+       
+       columnas(M_a) == len(M_ro) debe cumplirse
+
+       rev: 2018-06-13
+    """
+    roi = Xd[:2]; hi=Xd[2]
+    NN = len(M_ro)
+    S_errorc=0
+    for q in range(NN):
+      ai = M_a[0,q]
+      bi = M_a[1,q]
+      ro_m = self.Resistivity_Slumbg0(ai, bi, roi, hi, Np=10)
+      ec = (ro_m-M_ro[q])**2
+      S_errorc += ec
+    Er = S_errorc/NN
+    return Er
+
+  def Get_ajuste_Slumberg0(self,ferror,X0,Dato_h,Dato_ro, Niter=0):
+    """ferror: funcion de error,  X0: inicio[ro h]
+       Dato_ro: medidas de resistividad aparante
+       Dato_H: distancias de medidas Slumberger
+               array 2 filas. a:fila 0, b:fila 1
+               igual numero de columnas que Dato_ro
+       
+       ver. 2022-abril-19  (probada datos Wenner)
+    """
+    RES_0 = OP.minimize(ferror, X0,(Dato_h,Dato_ro))
+    if Niter>0:
+        xo1 = np.abs(RES_0.x)
+        RES_0 = OP.minimize(ferror, xo1,(Dato_h,Dato_ro))
+    return RES_0
+
+  def Get_roini(self,M_a,M_ro):
+    """M_a:lista distancias  M_ro:lista resistiv
+       calcula ro[primero, ultimo]
+       Para inicializar ajuste
+       rev: 2018-06-13
+    """
+
+    Xi = [M_ro[0],M_ro[-1],1]
+    return Xi
+
+  def Get_Show_Slumbg0(self, itt = 0):
+    """Calculo de parametros modelo de suelo de  2 capas
+       a partir de datos de Wenner usando:
+       Get_roini()
+       Error_Slumbg0()
+       Get_ajuste_Slumbg0()
+       Dat_slumbg{}
+
+       ver. lunes 2022-abril-19
+    """
+    Xo = self.Get_roini(self.Dat_slumbg["ab_dist"], self.Dat_slumbg["ro_med"])
+    print("Xo: ",Xo)
+    #Esta funcion calcula el error
+    er1 = self.Error_Slumbg0(Xo,self.Dat_slumbg["ab_dist"], self.Dat_slumbg["ro_med"])
+    print("Error inicial: ",er1)
+
+    ##ajuste de parametros
+    ##funcion de optimizacion en el modulo
+    ## utiliza scipy.optimize.minimize()
+    Ajuste1 = self.Get_ajuste_Slumberg0(self.Error_Slumbg0, Xo,
+                                      self.Dat_slumbg["ab_dist"],
+                                      self.Dat_slumbg["ro_med"], Niter=itt)
+    print("Modelo de 2 capas (Slumberger)")
+    print("ro1, ro2 : ",Ajuste1.x[:2])
+    print("ho : ",Ajuste1.x[2])
+    print("Error logrado: ",Ajuste1.fun)
+
+    ro1_ajuste1 = self.Resistivity_Slumbg0(a=self.Dat_slumbg["ab_dist"][0,:],b=self.Dat_slumbg["ab_dist"][1,:], ro=Ajuste1.x[:2], h=Ajuste1.x[2], Np=10)
+
+    
+    self.Dat_slumbg["ro0_ro1"]=Ajuste1.x[:2]
+    self.Dat_slumbg["ho"]=Ajuste1.x[2]
+    self.Dat_slumbg["ro_ajust"]= ro1_ajuste1
+    return
+
+  def Plot_Slumb0(self):
+    """Grafico de datos y modelo de Wenner:
+       .Dat_wenner
+
+       ver. lunes 2022-abril-19
+       Para version matplotlib 3.1.1
+    """
+    try:
+      from mpl_toolkits.mplot3d import Axes3D
+      fig = plt.figure()
+      ax = fig.gca(projection='3d')
+
+      ##datos grafico
+      xf = self.Dat_slumbg["ab_dist"][0,:]
+      yf = self.Dat_slumbg["ab_dist"][1,:]
+
+      z_data = self.Dat_slumbg["ro_med"]
+      z_ajust = self.Dat_slumbg["ro_ajust"]
+
+      ax.plot(xf,yf,z_data,"ro")
+      ax.plot(xf,yf,z_ajust,"b*-")
+      ax.legend(["Medidas","Modelo"])
+
+      plt.title("Resistividad apar. (ohms-m)")
+      plt.xlabel("Dist a(E corriente)")
+      plt.ylabel("Dist b(E potencial)")
+      plt.grid("on")
+      plt.show()
+
+    except:
+      print("Falta calcular modelo")
+    return
+
+  def Set_DatS0(self,d_new, ro_new):
+    """d_new : array 2 filas distancias a(e corriente) b(e potencial)
+       ro_new : lista resistividades aparentes medidas.
+       Asignar nuevos valores de medida
+    """
+    d_new = np.array(d_new)
+    self.Dat_slumbg["ab_dist"]= d_new
+    self.Dat_slumbg["ro_med"]= ro_new
+    self.Get_Show_Slumbg0()
+    return
+
 
 ##Codigo ppal
 
