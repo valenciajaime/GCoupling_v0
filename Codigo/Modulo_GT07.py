@@ -1394,15 +1394,15 @@ class Signal_Gen01(object):
     yx = np.interp(tx,ti,yi)
     ei=self.Error_Imp([1.0167,0.0142, 5.073],tx,yx)
     print("Error inicial: ",ei)
-    res = OP.minimize(Error_Imp,[1.0167,0.0142, 5.073],(tx,yx))
-    res = OP.minimize(Error_Imp,res.x,(tx,yx))
+    res = OP.minimize(self.Error_Imp,[1.0167,0.0142, 5.073],(tx,yx))
+    res = OP.minimize(self.Error_Imp,res.x,(tx,yx))
 
     Ik = res.x[0]; Alfa = res.x[1]; Beta = res.x[2]
     #Alfa y Beta esta para manejar funcion en microsegundos
     Imp = lambda t: Ik*(np.exp(-Alfa*t) - np.exp(-Beta*t))
     y_m = Imp(tx)
 
-    ef=Error_Imp(res.x,tx,yx)
+    ef=self.Error_Imp(res.x,tx,yx)
     print("Error final: ",ef)
     plt.plot(tx,yx,tx,y_m)
     plt.show()
