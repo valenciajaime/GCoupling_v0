@@ -1392,7 +1392,7 @@ class Signal_Gen01(object):
     yi = [0,1.0,0.5]
 
     yx = np.interp(tx,ti,yi)
-    ei=Error_Imp([1.0167,0.0142, 5.073],tx,yx)
+    ei=self.Error_Imp([1.0167,0.0142, 5.073],tx,yx)
     print("Error inicial: ",ei)
     res = OP.minimize(Error_Imp,[1.0167,0.0142, 5.073],(tx,yx))
     res = OP.minimize(Error_Imp,res.x,(tx,yx))
