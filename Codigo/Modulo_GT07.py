@@ -1356,7 +1356,7 @@ class Signal_Gen01(object):
     Y = []
 
     for q in T:
-      yi = ImpulsoE(q,Ik,alfa*1e6,beta*1e6)
+      yi = self.ImpulsoE(q,Ik,alfa*1e6,beta*1e6)
       Y.append(yi)
     Y = np.array(Y)
     return T,Y
