@@ -703,23 +703,31 @@ Numero Ramas: {}""".format(self.archivo,len(self), len(self.L_nodos), len(self.L
         n = len(self.Conductores)
         return n
 
-    def Read_spt01(self,ps=0):
-        """Lectura de datos, ps:parametros segmentacion
+    def Read_spt01(self,archi="",ps=0):##adicion argumento archivo
+        """Lectura de datos, archi: nombre del archivo a leer, ps:parametros segmentacion
                                 0: largos     1:cortos
+           Si archi ="" se habre cuadro de dialogo para seleccionar el archivo y el directoria de datos
            Formato de archivo:
-           xi; yi; zi; xf; yf; zf; Radio; conductividad
+           xo;yo;zo;xf;yf;zf;Radio(m);conduc   ##encabezado
+           xi; yi; zi; xf; yf; zf; Radio; conductividad ##dato cunductor
            
-           ver. 08-16-2020 domingo
+           ver. miercoles 2022-agosto-03
         """
-        d1,f1 = My_DirFil01()
-        f2 = f1.split("/")
-        self.archivo = f2[-1]
-        print("File: ",f1)
-        Ad = np.loadtxt(f1,delimiter=";",skiprows=1)
+        if archi=="":   ###### adicion original
+            d1,f1 = My_DirFil01()
+            f2 = f1.split("/")
+            self.archivo = f2[-1]
+            print("File: ",f1)
+            Ad = np.loadtxt(f1,delimiter=";",skiprows=1)
+        else:
+            Ad = np.loadtxt(archi, delimiter=";", skiprows=1)########adicion original
+        
         Conductors = []
         try:
+            contador=1
             for q in Ad:
                 Ci = Conductor01(q[:3],q[3:6],q[6],q[7],ps)
+                print(contador,">> ",q);contador +=1  ##linea de contador se conductores leidos
                 Conductors.append(Ci)
         except:
             print("Un solo conductor")
