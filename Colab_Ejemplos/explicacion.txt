@@ -1,0 +1,2 @@
+Miercoles 2022-agosto-03
+Se crea esta carpeta para organizar los ejemplos que se realizaran en colab.
