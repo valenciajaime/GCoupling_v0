@@ -1057,7 +1057,7 @@ class Solve_SPT01(object):
         {}""".format(str(self.spt))
         return s1
 
-    def Selec_cur(self,k="n"):
+    def Selec_cur(self,k="n",I = 1.0+0j):
         """Seleccionar punto de inyeccion de corriente Unitaria
            Calcula V: potenciales de nodo
                    U: potenciales en ramas
@@ -1072,7 +1072,7 @@ class Solve_SPT01(object):
            
         self.Inyecta0 = k #almacena nodo de inyeccion en un valor-2021-sep-6
         F = np.zeros(len(self.spt.L_nodos),dtype=np.complex64) #rev 2021-sep-18
-        F[k] = 1.0 + 0j
+        F[k] = I
         #Solcion del sistema con cada frecuencia
         VV=[];UU=[];II=[];ZZ=[] #inicializando listas
         for i,qq in enumerate(self.spt.freq):
